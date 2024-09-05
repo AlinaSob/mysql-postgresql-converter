@@ -46,7 +46,7 @@ def parse(input_filename, output_filename):
     if input_filename == "-":
         input_fh = sys.stdin
     else:
-        input_fh = open(input_filename)
+        input_fh = open(input_filename, encoding="utf-8")
 
 
     output.write("-- Converted by db_converter\n")
@@ -69,7 +69,7 @@ def parse(input_filename, output_filename):
             secs_left % 60,
         ))
         logging.flush()
-        line = line.decode("utf8").strip().replace(r"\\", "WUBWUBREALSLASHWUB").replace(r"\'", "''").replace("WUBWUBREALSLASHWUB", r"\\")
+        line = line.strip().replace(r"\\", "WUBWUBREALSLASHWUB").replace(r"\'", "''").replace("WUBWUBREALSLASHWUB", r"\\")
         # Ignore comment lines
         if line.startswith("--") or line.startswith("/*") or line.startswith("LOCK TABLES") or line.startswith("DROP TABLE") or line.startswith("UNLOCK TABLES") or not line:
             continue
@@ -78,22 +78,22 @@ def parse(input_filename, output_filename):
         if current_table is None:
             # Start of a table creation statement?
             if line.startswith("CREATE TABLE"):
-                current_table = line.split('"')[1]
+                current_table = line.split('`')[1]
                 tables[current_table] = {"columns": []}
                 creation_lines = []
             # Inserting data into a table?
             elif line.startswith("INSERT INTO"):
-                output.write(line.encode("utf8").replace("'0000-00-00 00:00:00'", "NULL") + "\n")
+                output.write(line.replace("'0000-00-00 00:00:00'", "NULL") + "\n")
                 num_inserts += 1
             # ???
             else:
-                print "\n ! Unknown line in main body: %s" % line
+                print ("\n ! Unknown line in main body: %s" % line)
 
         # Inside-create-statement handling
         else:
             # Is it a column?
-            if line.startswith('"'):
-                useless, name, definition = line.strip(",").split('"',2)
+            if line.startswith('`'):
+                useless, name, definition = line.strip(",").split('`',2)
                 try:
                     type, extra = definition.strip().split(" ", 1)
 
@@ -104,8 +104,8 @@ def parse(input_filename, output_filename):
                 except ValueError:
                     type = definition.strip()
                     extra = ""
-                extra = re.sub("CHARACTER SET [\w\d]+\s*", "", extra.replace("unsigned", ""))
-                extra = re.sub("COLLATE [\w\d]+\s*", "", extra.replace("unsigned", ""))
+                extra = re.sub("CHARACTER SET [\\w\\d]+\\s*", "", extra.replace("unsigned", ""))
+                extra = re.sub("COLLATE [\\w\\d]+\\s*", "", extra.replace("unsigned", ""))
 
                 # See if it needs type conversion
                 final_type = None
@@ -179,7 +179,7 @@ def parse(input_filename, output_filename):
             elif line.startswith("KEY"):
                 pass
             # Is it the end of the table?
-            elif line == ");":
+            elif line.startswith(") ENGINE=InnoDB") or line == ");":
                 output.write("CREATE TABLE \"%s\" (\n" % current_table)
                 for i, line in enumerate(creation_lines):
                     output.write("    %s%s\n" % (line, "," if i != (len(creation_lines) - 1) else ""))
@@ -187,7 +187,7 @@ def parse(input_filename, output_filename):
                 current_table = None
             # ???
             else:
-                print "\n ! Unknown line inside table creation: %s" % line
+                print ("\n ! Unknown line inside table creation: %s" % line)
 
 
     # Finish file
@@ -218,7 +218,7 @@ def parse(input_filename, output_filename):
     # Finish file
     output.write("\n")
     output.write("COMMIT;\n")
-    print ""
+    print ("")
 
 
 if __name__ == "__main__":
